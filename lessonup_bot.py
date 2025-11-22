@@ -17,13 +17,12 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 # --- MODIFICATION: Correct import for Chromium ---
 from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.os_manager import ChromeType  # <-- This line is fixed
+from webdriver_manager.core.os_manager import ChromeType  # <-- Need this again
 # --- END MODIFICATION ---
 
 
 # --- Logger Configuration ---
 # Suppress unnecessary logs from Selenium
-# ... (rest of the file is unchanged) ...
 logger = logging.getLogger('selenium.webdriver.remote.remote_connection')
 logger.setLevel(logging.ERROR)
 logging.getLogger('webdriver_manager').setLevel(logging.ERROR)
@@ -74,7 +73,7 @@ class LessonUpBot:
         from selenium import webdriver
         # --- MODIFICATION: Correct import for Chromium ---
         from webdriver_manager.chrome import ChromeDriverManager
-        from webdriver_manager.core.os_manager import ChromeType  # <-- This line is fixed
+        from webdriver_manager.core.os_manager import ChromeType # <-- Need this again
         # --- END MODIFICATION ---
         from selenium.webdriver.common.keys import Keys
         from selenium.webdriver.common.by import By
@@ -107,16 +106,34 @@ class LessonUpBot:
             # options.add_argument('--disable-dev-shm-usage') # This was for Linux/Colab
             
             # --- NOTE FOR CHROMIUM ---
-            # Pointing to your specific Chromium installation
-            options.binary_location = r"C:\Users\zedek\AppData\Local\Chromium\Application\chrome.exe"
+            # We will now try to find Chromium automatically, not with a hard-coded path.
+            # options.binary_location = r"C:\Users\zedek\AppData\Local\Chromium\Application\chrome.exe" # <-- REMOVED
             # --- END NOTE ---
 
             # --- Driver Initialization ---
-            # --- MODIFICATION: Use ChromeDriverManager pointed at Chromium ---
-            driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-            # --- END MODIFICATION ---
-            service = webdriver.ChromeService(driver_path, log_output=os.devnull)
-            driver = webdriver.Chrome(service=service, options=options)
+            # --- NEW: Try Chromium first, then fall back to Chrome ---
+            driver = None
+            try:
+                print(f"[INFO] {player} attempting to initialize Chromium...")
+                driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+                service = webdriver.ChromeService(driver_path, log_output=os.devnull)
+                driver = webdriver.Chrome(service=service, options=options)
+                print(f"[INFO] {player} successfully initialized Chromium.")
+            except Exception:
+                print(f"[WARNING] {player} could not initialize Chromium. Falling back to Google Chrome...")
+                try:
+                    driver_path = ChromeDriverManager().install() # <-- Default Google Chrome
+                    service = webdriver.ChromeService(driver_path, log_output=os.devnull)
+                    driver = webdriver.Chrome(service=service, options=options)
+                    print(f"[INFO] {player} successfully initialized Google Chrome.")
+                except Exception as e:
+                    print(f"[ERROR] {player} failed to initialize Google Chrome as well. Stopping thread. Error: {e}")
+                    return # Exit the function
+            
+            if not driver:
+                print(f"[ERROR] {player} driver could not be initialized. Stopping thread.")
+                return
+            # --- END NEW ---
             
             # --- Selenium Logic ---
             print(f"[INFO] {player} opening URL...")
@@ -280,7 +297,7 @@ class LessonUpBot:
     def titlebar():
         """Prints the script's title bar."""
         print("LessonUp.app Autojoiner")
-        print("made by zedekvdb")
+        print("zedekvdb")
         print("-------------------")
 
     @staticmethod
